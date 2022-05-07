@@ -2,20 +2,35 @@ package gui;
 
 import java.awt.EventQueue;
 import java.awt.Font;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.sql.Date;
+import java.util.List;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableModel;
 
-public class FrmCrudJugador extends JFrame {
+import entidad.Jugador;
+import model.JugadorModel;
+import util.Conversiones;
+import util.Validaciones;
+
+public class FrmCrudJugador extends JFrame implements ActionListener, MouseListener {
 
 	/**
 	 * 
@@ -28,7 +43,10 @@ public class FrmCrudJugador extends JFrame {
 	private JButton btnIngresar;
 	private JButton btnActualizar;
 	private JButton btnEliminar;
-	
+	private JCheckBox chkEstado;
+	private JScrollPane scrollPane;
+	private JTable table;
+	private int idSeleccionado = -1;
 
 	/**
 	 * Launch the application.
@@ -58,7 +76,7 @@ public class FrmCrudJugador extends JFrame {
 	 */
 	public FrmCrudJugador() {
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setBounds(100, 100, 674, 462);
+		setBounds(100, 100, 674, 537);
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(contentPane);
@@ -98,26 +116,46 @@ public class FrmCrudJugador extends JFrame {
 		txtFecha.setColumns(10);
 
 		btnIngresar = new JButton("Ingresar");
+		btnIngresar.addActionListener(this);
 		btnIngresar.setIcon(new ImageIcon(FrmCrudJugador.class.getResource("/iconos/add.gif")));
 		btnIngresar.setBounds(495, 91, 130, 30);
 		contentPane.add(btnIngresar);
 
 		btnActualizar = new JButton("Actualizar");
+		btnActualizar.addActionListener(this);
 		btnActualizar.setIcon(new ImageIcon(FrmCrudJugador.class.getResource("/iconos/edit.gif")));
 		btnActualizar.setBounds(495, 131, 130, 30);
 		contentPane.add(btnActualizar);
 
 		btnEliminar = new JButton("Eliminar");
+		btnEliminar.addActionListener(this);
 		btnEliminar.setIcon(new ImageIcon(FrmCrudJugador.class.getResource("/iconos/delete.gif")));
 		btnEliminar.setBounds(495, 172, 130, 30);
 		contentPane.add(btnEliminar);
-
+		
+		chkEstado = new JCheckBox("Estado");
+		chkEstado.setSelected(true);
+		chkEstado.setBounds(259, 212, 97, 23);
+		contentPane.add(chkEstado);
+		
+		scrollPane = new JScrollPane();
+		scrollPane.setBounds(22, 241, 600, 246);
+		contentPane.add(scrollPane);
+		
+		table = new JTable();
+		table.addMouseListener(this);
+		table.setModel(new DefaultTableModel(
+			new Object[][] {
+			},
+			new String[] {
+				"ID", "Nombre", "Apellido", "Fecha nacimiento", "Estado"
+			}
+		));
+		scrollPane.setViewportView(table);
+		
+		lista();
 	}
 
-	
-	
-
-	
 	void mensaje(String m) {
 		JOptionPane.showMessageDialog(this, m);
 	}
@@ -128,8 +166,172 @@ public class FrmCrudJugador extends JFrame {
 		txtFecha.setText("");
 		txtNombre.requestFocus();
 	}
+	public void actionPerformed(ActionEvent e) {
+		if (e.getSource() == btnEliminar) {
+			handle_btnEliminar_actionPerformed(e);
+		}
+		if (e.getSource() == btnActualizar) {
+			handle_btnActualizar_actionPerformed(e);
+		}
+		if (e.getSource() == btnIngresar) {
+			handle_btnIngresar_actionPerformed(e);
+		}
+	}
+	protected void handle_btnIngresar_actionPerformed(ActionEvent e) {
+		inserta();
+	}
+	protected void handle_btnActualizar_actionPerformed(ActionEvent e) {
+		actualiza();
+	}
+	protected void handle_btnEliminar_actionPerformed(ActionEvent e) {
+		elimina();
+	}
+	public void mouseClicked(MouseEvent e) {
+		if (e.getSource() == table) {
+			handle_table_mouseClicked(e);
+		}
+	}
+	public void mouseEntered(MouseEvent e) {
+	}
+	public void mouseExited(MouseEvent e) {
+	}
+	public void mousePressed(MouseEvent e) {
+	}
+	public void mouseReleased(MouseEvent e) {
+	}
+	protected void handle_table_mouseClicked(MouseEvent e) {
+		busca();
+	}
 	
+	private void lista() {
+		JugadorModel model = new JugadorModel();
+		List<Jugador> lista = model.listaJugador();
+		
+		DefaultTableModel dtm = (DefaultTableModel) table.getModel();
+		dtm.setRowCount(0);
+		
+		Object[] fila = null; 
+		for (Jugador x : lista) {
+			fila = new Object[]{ x.getIdJugador(), x.getNombre(), x.getApellido(), x.getFechaNacimiento(), getFormatEstado(x.getEstado())};
+			dtm.addRow(fila);
+		}
+	}
 	
+	private void inserta() {
+		String nom = txtNombre.getText();
+		String ape = txtApellido.getText();
+		String fec = txtFecha.getText();
+		boolean estado = chkEstado.isSelected();
+		
+		if (!nom.matches(Validaciones.TEXTO)) {
+			mensaje("El nombre es de 2 a 20 caracteres");
+		}else if (!ape.matches(Validaciones.TEXTO)) {
+			mensaje("El apellido es de 2 a 20 caracteres");
+		}else if (!fec.matches(Validaciones.FECHA)) {
+			mensaje("El nombre es de 2 a 20 caracteres");
+		}else {
+			Jugador obj = new Jugador();
+			obj.setNombre(nom);
+			obj.setApellido(ape);
+			obj.setFechaNacimiento(Conversiones.toFecha(fec));
+			obj.setEstado(getIntegerEstado(estado));
+			
+			JugadorModel model = new JugadorModel();
+			int salida = model.insertaJugador(obj);
+			
+			if (salida > 0) {
+				lista();
+				idSeleccionado = -1;
+				limpiarCajasTexto();
+				mensaje("Se insertó correctamente");
+			}else {
+				mensaje("Error en el Registro");
+			}
+			
+		}
+	}
+	private void busca() {
+		int fila = table.getSelectedRow();
+		
+		idSeleccionado = (Integer)table.getValueAt(fila, 0);
+		String nombre =  (String)table.getValueAt(fila, 1);
+		String apellido =  (String)table.getValueAt(fila, 2);
+		Date fecha =  (Date)table.getValueAt(fila, 3);
+		String estado =  (String)table.getValueAt(fila, 4);
+		
+		System.out.println(idSeleccionado + " - " +  nombre + " - " + apellido + " - " + fecha + " - " + estado);
+		
+		txtNombre.setText(nombre);
+		txtApellido.setText(apellido);
+		txtFecha.setText(String.valueOf(fecha));
+		chkEstado.setSelected(getBooleanEstado(estado));
+	}
+	
+	private void elimina() {
+		if (idSeleccionado == -1) {
+			mensaje("Seleccione una fila");
+		}else {
+			JugadorModel model = new JugadorModel();
+			int salida = model.eliminaJugador(idSeleccionado);
+			if (salida > 0) {
+				lista();
+				idSeleccionado = -1;
+				limpiarCajasTexto();
+				mensaje("Se eliminó correctamente");
+			}else {
+				mensaje("Error en la eliminación");
+			}
+		}
+	}
+	private void actualiza() {
+		String nom = txtNombre.getText();
+		String ape = txtApellido.getText();
+		String fec = txtFecha.getText();
+		boolean estado = chkEstado.isSelected();
+		
+		if (idSeleccionado == -1) {
+			mensaje("Seleccione una fila");
+		}else if (!nom.matches(Validaciones.TEXTO)) {
+			mensaje("El nombre es de 2 a 20 caracteres");
+		}else if (!ape.matches(Validaciones.TEXTO)) {
+			mensaje("El apellido es de 2 a 20 caracteres");
+		}else if (!fec.matches(Validaciones.FECHA)) {
+			mensaje("El nombre es de 2 a 20 caracteres");
+		}else {
+			Jugador obj = new Jugador();
+			obj.setIdJugador(idSeleccionado);
+			obj.setNombre(nom);
+			obj.setApellido(ape);
+			obj.setFechaNacimiento(Conversiones.toFecha(fec));
+			obj.setEstado(getIntegerEstado(estado));
+			
+			JugadorModel model = new JugadorModel();
+			int salida = model.actualizaJugador(obj);
+			
+			if (salida > 0) {
+				lista();
+				idSeleccionado = -1;
+				limpiarCajasTexto();
+				mensaje("Se actualizó correctamente");
+			}else {
+				mensaje("Error en la actualización");
+			}
+			
+		}
+		
+	}
+	
+	private String getFormatEstado(int estado) {
+		return estado == 1 ? "Activo" : "Inactivo";
+	}
+	
+	private int getIntegerEstado(boolean estado) {
+		return estado ? 1 : 0;
+	}
+	
+	private boolean getBooleanEstado(String estado) {
+		return estado == "Activo" ? true : false;
+	}
 }
 
 
