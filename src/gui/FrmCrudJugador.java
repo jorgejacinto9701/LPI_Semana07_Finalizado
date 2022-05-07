@@ -1,11 +1,14 @@
 package gui;
 
+import java.awt.Color;
 import java.awt.EventQueue;
 import java.awt.Font;
+import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
 import java.sql.Date;
 import java.util.List;
 
@@ -19,10 +22,12 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 
 import entidad.Jugador;
@@ -46,8 +51,11 @@ public class FrmCrudJugador extends JFrame implements ActionListener, MouseListe
 	private JCheckBox chkEstado;
 	private JScrollPane scrollPane;
 	private JTable table;
+	// -1 indica que no se ha selecionado nada en la grilla o Jtable
 	private int idSeleccionado = -1;
 
+	int hoveredRow = -1, hoveredColumn = -1;
+	
 	/**
 	 * Launch the application.
 	 */
@@ -76,7 +84,7 @@ public class FrmCrudJugador extends JFrame implements ActionListener, MouseListe
 	 */
 	public FrmCrudJugador() {
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setBounds(100, 100, 674, 537);
+		setBounds(100, 100, 674, 462);
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(contentPane);
@@ -124,22 +132,22 @@ public class FrmCrudJugador extends JFrame implements ActionListener, MouseListe
 		btnActualizar = new JButton("Actualizar");
 		btnActualizar.addActionListener(this);
 		btnActualizar.setIcon(new ImageIcon(FrmCrudJugador.class.getResource("/iconos/edit.gif")));
-		btnActualizar.setBounds(495, 131, 130, 30);
+		btnActualizar.setBounds(495, 168, 130, 30);
 		contentPane.add(btnActualizar);
 
 		btnEliminar = new JButton("Eliminar");
 		btnEliminar.addActionListener(this);
 		btnEliminar.setIcon(new ImageIcon(FrmCrudJugador.class.getResource("/iconos/delete.gif")));
-		btnEliminar.setBounds(495, 172, 130, 30);
+		btnEliminar.setBounds(495, 127, 130, 30);
 		contentPane.add(btnEliminar);
 		
-		chkEstado = new JCheckBox("Estado");
+		chkEstado = new JCheckBox("Activo");
 		chkEstado.setSelected(true);
-		chkEstado.setBounds(259, 212, 97, 23);
+		chkEstado.setBounds(259, 209, 97, 30);
 		contentPane.add(chkEstado);
 		
 		scrollPane = new JScrollPane();
-		scrollPane.setBounds(22, 241, 600, 246);
+		scrollPane.setBounds(22, 246, 611, 166);
 		contentPane.add(scrollPane);
 		
 		table = new JTable();
@@ -151,11 +159,58 @@ public class FrmCrudJugador extends JFrame implements ActionListener, MouseListe
 				"ID", "Nombre", "Apellido", "Fecha nacimiento", "Estado"
 			}
 		));
+		
+		
+		//alineación
+		DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
+		rightRenderer.setHorizontalAlignment(JLabel.CENTER);
+		table.getColumnModel().getColumn(0).setCellRenderer(rightRenderer);
+		table.getColumnModel().getColumn(3).setCellRenderer(rightRenderer);
+		table.getColumnModel().getColumn(4).setCellRenderer(rightRenderer);
+		
+		//tamano de la fila	
+		table.getColumnModel().getColumn(0).setPreferredWidth(15);
+		table.getColumnModel().getColumn(1).setPreferredWidth(120);
+		table.getColumnModel().getColumn(2).setPreferredWidth(120);
+		table.getColumnModel().getColumn(3).setPreferredWidth(80);
+		table.getColumnModel().getColumn(4).setPreferredWidth(60);
+		table.setAutoResizeMode(JTable.AUTO_RESIZE_LAST_COLUMN);
+		
+		//selecciona una sola fila
+		table.setRowSelectionAllowed(true);
+		table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		
+		//desabilita mover las columnas
+		table.getTableHeader().setReorderingAllowed(false);
+		
 		scrollPane.setViewportView(table);
 		
+		//color de la fila seleccionada
+		table.setSelectionBackground(Color.GREEN);
+		
+	    //No se pueda editar
+	    table.setDefaultEditor(Object.class, null);
+	    
+		//Efecto Rollover
+	    table.addMouseMotionListener(new MouseMotionListener() {
+	        @Override
+	        public void mouseMoved(MouseEvent e) {
+	            Point p = e.getPoint();
+	            hoveredRow = table.rowAtPoint(p);
+	            hoveredColumn = table.columnAtPoint(p);
+	            table.setRowSelectionInterval(hoveredRow, hoveredRow);
+	            table.repaint();    
+	        }
+	        @Override
+	        public void mouseDragged(MouseEvent e) {
+	            hoveredRow = hoveredColumn = -1;
+	            table.repaint();
+	        }
+	    });
+	    
 		lista();
 	}
-
+	
 	void mensaje(String m) {
 		JOptionPane.showMessageDialog(this, m);
 	}
@@ -166,12 +221,14 @@ public class FrmCrudJugador extends JFrame implements ActionListener, MouseListe
 		txtFecha.setText("");
 		txtNombre.requestFocus();
 	}
+	
+	
 	public void actionPerformed(ActionEvent e) {
-		if (e.getSource() == btnEliminar) {
-			handle_btnEliminar_actionPerformed(e);
-		}
 		if (e.getSource() == btnActualizar) {
 			handle_btnActualizar_actionPerformed(e);
+		}
+		if (e.getSource() == btnEliminar) {
+			handle_btnEliminar_actionPerformed(e);
 		}
 		if (e.getSource() == btnIngresar) {
 			handle_btnIngresar_actionPerformed(e);
@@ -180,11 +237,11 @@ public class FrmCrudJugador extends JFrame implements ActionListener, MouseListe
 	protected void handle_btnIngresar_actionPerformed(ActionEvent e) {
 		inserta();
 	}
-	protected void handle_btnActualizar_actionPerformed(ActionEvent e) {
-		actualiza();
-	}
 	protected void handle_btnEliminar_actionPerformed(ActionEvent e) {
 		elimina();
+	}
+	protected void handle_btnActualizar_actionPerformed(ActionEvent e) {
+		actualiza();
 	}
 	public void mouseClicked(MouseEvent e) {
 		if (e.getSource() == table) {
@@ -210,9 +267,9 @@ public class FrmCrudJugador extends JFrame implements ActionListener, MouseListe
 		DefaultTableModel dtm = (DefaultTableModel) table.getModel();
 		dtm.setRowCount(0);
 		
-		Object[] fila = null; 
+		Object[] fila = null;
 		for (Jugador x : lista) {
-			fila = new Object[]{ x.getIdJugador(), x.getNombre(), x.getApellido(), x.getFechaNacimiento(), getFormatEstado(x.getEstado())};
+			fila = new Object[] {x.getIdJugador(), x.getNombre(), x.getApellido(), x.getFechaNacimiento(), getFormatoEstado(x.getEstado())};
 			dtm.addRow(fila);
 		}
 	}
@@ -221,7 +278,6 @@ public class FrmCrudJugador extends JFrame implements ActionListener, MouseListe
 		String nom = txtNombre.getText();
 		String ape = txtApellido.getText();
 		String fec = txtFecha.getText();
-		boolean estado = chkEstado.isSelected();
 		
 		if (!nom.matches(Validaciones.TEXTO)) {
 			mensaje("El nombre es de 2 a 20 caracteres");
@@ -234,22 +290,22 @@ public class FrmCrudJugador extends JFrame implements ActionListener, MouseListe
 			obj.setNombre(nom);
 			obj.setApellido(ape);
 			obj.setFechaNacimiento(Conversiones.toFecha(fec));
-			obj.setEstado(getIntegerEstado(estado));
 			
 			JugadorModel model = new JugadorModel();
 			int salida = model.insertaJugador(obj);
 			
 			if (salida > 0) {
 				lista();
-				idSeleccionado = -1;
 				limpiarCajasTexto();
+				idSeleccionado = -1;
 				mensaje("Se insertó correctamente");
 			}else {
 				mensaje("Error en el Registro");
 			}
 			
-		}
+		}	
 	}
+	
 	private void busca() {
 		int fila = table.getSelectedRow();
 		
@@ -259,7 +315,7 @@ public class FrmCrudJugador extends JFrame implements ActionListener, MouseListe
 		Date fecha =  (Date)table.getValueAt(fila, 3);
 		String estado =  (String)table.getValueAt(fila, 4);
 		
-		System.out.println(idSeleccionado + " - " +  nombre + " - " + apellido + " - " + fecha + " - " + estado);
+		System.out.println(idSeleccionado + " - " + nombre + " - " + apellido + " - " + fecha + " - " + estado);
 		
 		txtNombre.setText(nombre);
 		txtApellido.setText(apellido);
@@ -269,10 +325,11 @@ public class FrmCrudJugador extends JFrame implements ActionListener, MouseListe
 	
 	private void elimina() {
 		if (idSeleccionado == -1) {
-			mensaje("Seleccione una fila");
+			mensaje("Seleccione una Fila");
 		}else {
 			JugadorModel model = new JugadorModel();
 			int salida = model.eliminaJugador(idSeleccionado);
+			
 			if (salida > 0) {
 				lista();
 				idSeleccionado = -1;
@@ -283,6 +340,7 @@ public class FrmCrudJugador extends JFrame implements ActionListener, MouseListe
 			}
 		}
 	}
+	
 	private void actualiza() {
 		String nom = txtNombre.getText();
 		String ape = txtApellido.getText();
@@ -290,7 +348,7 @@ public class FrmCrudJugador extends JFrame implements ActionListener, MouseListe
 		boolean estado = chkEstado.isSelected();
 		
 		if (idSeleccionado == -1) {
-			mensaje("Seleccione una fila");
+			mensaje("Seleccione una Fila");
 		}else if (!nom.matches(Validaciones.TEXTO)) {
 			mensaje("El nombre es de 2 a 20 caracteres");
 		}else if (!ape.matches(Validaciones.TEXTO)) {
@@ -310,27 +368,24 @@ public class FrmCrudJugador extends JFrame implements ActionListener, MouseListe
 			
 			if (salida > 0) {
 				lista();
-				idSeleccionado = -1;
 				limpiarCajasTexto();
-				mensaje("Se actualizó correctamente");
+				idSeleccionado = -1;
+				mensaje("Se actulizó correctamente");
 			}else {
 				mensaje("Error en la actualización");
 			}
 			
-		}
-		
+		}	
 	}
 	
-	private String getFormatEstado(int estado) {
-		return estado == 1 ? "Activo" : "Inactivo";
+	private String getFormatoEstado(int estado) {
+		return estado == 1? "Activo":"Inactivo";
 	}
-	
-	private int getIntegerEstado(boolean estado) {
-		return estado ? 1 : 0;
-	}
-	
 	private boolean getBooleanEstado(String estado) {
-		return estado == "Activo" ? true : false;
+		return estado == "Activo"? true:false;
+	}
+	private int getIntegerEstado(boolean estado) {
+		return estado? 1:0;
 	}
 }
 
